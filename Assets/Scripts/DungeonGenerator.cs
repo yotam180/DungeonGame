@@ -89,7 +89,7 @@ public class Dungeon
 {
     public object[,] Tiles;
 
-    List<Room> Rooms = new List<Room>();
+    public List<Room> Rooms = new List<Room>();
 
     public Dungeon(Coord size)
     {
@@ -312,7 +312,17 @@ public class DungeonGenerator : MonoBehaviour
                 InstantiateOn(new Coord(i, j));
             }
         }
+
+        var room = d.Rooms[Random.Range(0, d.Rooms.Count)];
+        var tile = room.Tiles[Random.Range(0, room.Tiles.Count)];
+
+        Controller.GetComponent<CharacterController>().enabled = false;
+        Controller.transform.position = Map(tile) + Vector3.up;
+        Controller.GetComponent<CharacterController>().enabled = true;
+        print("Transformed FPS controller to place");
     }
+
+    [SerializeField] GameObject Controller;
 
     [SerializeField] GameObject FloorRoom;
     [SerializeField] GameObject FloorPath;
@@ -325,17 +335,17 @@ public class DungeonGenerator : MonoBehaviour
 
         if (obj is Room)
         {
-            Instantiate(FloorRoom, Map(c), Quaternion.identity);
+            InstantiateGameObject(FloorRoom, Map(c), Quaternion.identity);
             CreateRoomWalls(c);
         }
         else if (obj is Path)
         {
-            Instantiate(FloorPath, Map(c), Quaternion.identity);
+            InstantiateGameObject(FloorPath, Map(c), Quaternion.identity);
             CreatePathWall(c);
         }
         else if (obj is Intersection)
         {
-            Instantiate(FloorIntersection, Map(c), Quaternion.identity);
+            InstantiateGameObject(FloorIntersection, Map(c), Quaternion.identity);
             CreateIntersectionWalls(c);
         }
     }
@@ -389,8 +399,15 @@ public class DungeonGenerator : MonoBehaviour
         var objectLocation = Map(coord);
         var wallLocation = MapWall(direction);
         var rotation = Quaternion.LookRotation(new Vector3(direction.y, 0, -direction.x), Vector3.up);
-        var wallObj = Instantiate(Wall, objectLocation + wallLocation, rotation);
+        var wallObj = InstantiateGameObject(Wall, objectLocation + wallLocation, rotation);
         wallObj.name = coord.x + ", " + coord.y + " -- " + direction.x + ", " + direction.y;
+    }
+
+    GameObject InstantiateGameObject(GameObject obj, Vector3 position, Quaternion rotation)
+    {
+        var inst = Instantiate(obj, position, rotation);
+        inst.transform.localScale = (MAP_SCALE / 8f) * new Vector3(1, 1, 1);
+        return inst;
     }
 
     // private void InstantiateTiles(IEnumerable<Coord> Tiles, Color color)
@@ -404,7 +421,7 @@ public class DungeonGenerator : MonoBehaviour
     //     }
     // }
 
-    static readonly float MAP_SCALE = 8f; // TODO: Lower this
+    static readonly float MAP_SCALE = 5f; // TODO: Lower this
     private Vector3 Map(Coord coord)
     {
         return new Vector3(coord.x, 0, coord.y) * MAP_SCALE;
