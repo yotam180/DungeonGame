@@ -36,6 +36,18 @@ public struct Coord
     public static Coord operator +(Coord a, Coord b) => new Coord(a.x + b.x, a.y + b.y);
     public static Coord operator -(Coord a, Coord b) => new Coord(a.x - b.x, a.y - b.y);
     public static Coord operator -(Coord a) => new Coord(-a.x, -a.y);
+    // public static bool operator ==(Coord a, Coord b) => a.Equals(b);
+    // public static bool operator !=(Coord a, Coord b) => !a.Equals(b);
+
+    // public override bool Equals(object obj)
+    // {
+    //     return base.Equals(obj);
+    // }
+
+    // public override int GetHashCode()
+    // {
+    //     return base.GetHashCode();
+    // }
 
     public int Distance(Coord other) => Mathf.Abs(x - other.x) + Mathf.Abs(y - other.y);
     public bool Near(Coord other) => Distance(other) == 1;
@@ -73,7 +85,7 @@ public class Intersection
     public List<Coord> Connections = new List<Coord>();
 }
 
-class Dungeon
+public class Dungeon
 {
     public object[,] Tiles;
 
@@ -289,6 +301,7 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField] GameObject FloorRoom;
     [SerializeField] GameObject FloorPath;
     [SerializeField] GameObject FloorIntersection;
+    [SerializeField] GameObject Wall;
 
     void InstantiateOn(Coord c)
     {
@@ -297,15 +310,69 @@ public class DungeonGenerator : MonoBehaviour
         if (obj is Room)
         {
             Instantiate(FloorRoom, Map(c), Quaternion.identity);
+            CreateRoomWalls(c);
         }
         else if (obj is Path)
         {
             Instantiate(FloorPath, Map(c), Quaternion.identity);
+            CreatePathWall(c);
         }
         else if (obj is Intersection)
         {
             Instantiate(FloorIntersection, Map(c), Quaternion.identity);
+            CreateIntersectionWalls(c);
         }
+    }
+
+    void CreateRoomWalls(Coord coord)
+    {
+        var room = d.GetObjectAt(coord) as Room;
+
+        foreach (var direction in Coord.Directions)
+        {
+            if (d.GetObjectAt(coord + direction) != room && !room.Entrances.Contains((coord, direction)))
+            {
+                InstantiateWall(coord, direction);
+            }
+        }
+    }
+
+    void CreateIntersectionWalls(Coord coord)
+    {
+        var inter = d.GetObjectAt(coord) as Intersection;
+        foreach (var direction in Coord.Directions)
+        {
+            if (!inter.Connections.Contains(direction))
+            {
+                InstantiateWall(coord, direction);
+            }
+        }
+    }
+
+    void CreatePathWall(Coord coord)
+    {
+        var me = d.GetObjectAt(coord);
+        foreach (var direction in Coord.Directions)
+        {
+            var obj = d.GetObjectAt(coord + direction);
+            if (obj == me || obj is Room || (obj is Intersection && (obj as Intersection).Connections.Contains(-direction)))
+            {
+                // Nothing lol
+            }
+            else
+            {
+                InstantiateWall(coord, direction);
+            }
+        }
+    }
+
+    void InstantiateWall(Coord coord, Coord direction)
+    {
+        var objectLocation = Map(coord);
+        var wallLocation = MapWall(direction);
+        var rotation = Quaternion.LookRotation(new Vector3(direction.y, 0, -direction.x), Vector3.up);
+        var wallObj = Instantiate(Wall, objectLocation + wallLocation, rotation);
+        wallObj.name = coord.x + ", " + coord.y + " -- " + direction.x + ", " + direction.y;
     }
 
     // private void InstantiateTiles(IEnumerable<Coord> Tiles, Color color)
@@ -319,8 +386,21 @@ public class DungeonGenerator : MonoBehaviour
     //     }
     // }
 
+    static readonly float MAP_SCALE = 8f; // TODO: Lower this
     private Vector3 Map(Coord coord)
     {
-        return new Vector3(coord.x, 0, coord.y) * 8f;
+        return new Vector3(coord.x, 0, coord.y) * MAP_SCALE;
+    }
+
+    Dictionary<Coord, Vector3> DIR_MAP = new Dictionary<Coord, Vector3>()
+    {
+        [new Coord(-1, 0)] = new Vector3(0, 0, 0),
+        [new Coord(1, 0)] = new Vector3(MAP_SCALE, 0, -MAP_SCALE),
+        [new Coord(0, -1)] = new Vector3(0, 0, -MAP_SCALE),
+        [new Coord(0, 1)] = new Vector3(MAP_SCALE, 0, 0),
+    };
+    private Vector3 MapWall(Coord coord)
+    {
+        return DIR_MAP[coord];
     }
 }

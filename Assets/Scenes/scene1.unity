@@ -671,3 +671,4 @@ MonoBehaviour:
   FloorRoom: {fileID: 1088775576035736130, guid: 2ae722d2329564349a923fa8351d5e21, type: 3}
   FloorPath: {fileID: 1001037702134712886, guid: af280e17ac8b57148bbbefa89d238690, type: 3}
   FloorIntersection: {fileID: 8375320991021060600, guid: abbf49bd644a521499d6ef108be8a5ee, type: 3}
+  Wall: {fileID: 4720700519943662573, guid: ad5cb22b53851d54bb9c1ddcfc79bfb2, type: 3}
