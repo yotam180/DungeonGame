@@ -4,7 +4,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using UnityEngine;
 
-struct Coord
+public struct Coord
 {
     public int x;
     public int y;
@@ -34,6 +34,12 @@ struct Coord
     };
 
     public static Coord operator +(Coord a, Coord b) => new Coord(a.x + b.x, a.y + b.y);
+    public static Coord operator -(Coord a, Coord b) => new Coord(a.x - b.x, a.y - b.y);
+    public static Coord operator -(Coord a) => new Coord(-a.x, -a.y);
+
+    public int Distance(Coord other) => Mathf.Abs(x - other.x) + Mathf.Abs(y - other.y);
+    public bool Near(Coord other) => Distance(other) == 1;
+
     public static Coord Cross(Coord a, Coord b)
     {
         return new Coord(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
@@ -50,21 +56,32 @@ struct Coord
     }
 }
 
-class Room
+public class Room
 {
     public List<Coord> Tiles = new List<Coord>();
-    public List<Coord> Entrances = new List<Coord>();
+    public List<(Coord, Coord)> Entrances = new List<(Coord, Coord)>();
+}
+
+public class Path
+{
+    public List<Coord> Tiles = new List<Coord>();
+}
+
+public class Intersection
+{
+    // Add the coordinates of this intersection and the direction Coord object to obtain the path/intersection object in direction X
+    public List<Coord> Connections = new List<Coord>();
 }
 
 class Dungeon
 {
-    public bool[,] Tiles;
+    public object[,] Tiles;
 
     List<Room> Rooms = new List<Room>();
 
     public Dungeon(Coord size)
     {
-        Tiles = new bool[size.x, size.y];
+        Tiles = new object[size.x, size.y];
     }
 
     public bool Exists(Coord coord)
@@ -74,7 +91,12 @@ class Dungeon
 
     public bool Occupied(Coord coord)
     {
-        return Exists(coord) ? Tiles[coord.x, coord.y] : false;
+        return Exists(coord) ? Tiles[coord.x, coord.y] != null : false;
+    }
+
+    public object GetObjectAt(Coord coord)
+    {
+        return Exists(coord) ? Tiles[coord.x, coord.y] : null;
     }
 
     public bool IsFree(Coord coord)
@@ -89,20 +111,20 @@ class Dungeon
         return true;
     }
 
-    public void SetOccupied(Coord coord)
+    public void SetOccupied(Coord coord, object value)
     {
-        Tiles[coord.x, coord.y] = true;
+        Tiles[coord.x, coord.y] = value;
     }
 
-    public void SetOccupied(List<Coord> coords)
+    public void SetOccupied(List<Coord> coords, object value)
     {
         foreach (var coord in coords)
         {
-            SetOccupied(coord);
+            SetOccupied(coord, value);
         }
     }
 
-    public List<Coord> GenerateRoomTiles(Coord position, int size)
+    public Room GenerateRoomTiles(Coord position, int size)
     {
         if (!IsFree(position))
         {
@@ -130,44 +152,13 @@ class Dungeon
             }
         }
 
-        SetOccupied(tiles);
-        Rooms.Add(new Room
-        {
-            Tiles = tiles
-        });
-        return tiles;
+        var room = new Room { Tiles = tiles };
+        Rooms.Add(room);
+        SetOccupied(tiles, room);
+        return room;
     }
 
-    // public class PathGenerator
-    // {
-    //     public Coord Latest;
-
-    //     public Coord Direction;
-
-    //     public Coord Advance()
-    //     {
-    //         var lot = Random.Range(0f, 1f);
-    //         if (lot < .85f) { }
-    //         else if (lot < .93)
-    //         {
-    //             Direction = Direction.TurnLeft();
-    //         }
-    //         else
-    //         {
-    //             Direction = Direction.TurnRight();
-    //         }
-
-    //         Latest = Latest + Direction;
-    //         return Latest;
-    //     }
-    // }
-
-    // public void GeneratePath()
-    // {
-    //     var gen = new PathGenerator { Direction = new Coord(1, 0) };
-    // }
-
-    public List<Coord> GeneratePath(Coord start, Coord direction)
+    public Path GeneratePath(Coord start, Coord direction)
     {
         while (Exists(start) && !(Occupied(start) && !Occupied(start + direction)))
         {
@@ -176,7 +167,9 @@ class Dungeon
 
         if (!Exists(start)) return null; // ?
 
+        MakeEffectOnDestination(start, direction);
         start += direction;
+
         List<Coord> tiles = new List<Coord>();
         while (Exists(start) && !(Occupied(start)))
         {
@@ -186,20 +179,48 @@ class Dungeon
             var lot = Random.Range(0f, 1f);
             if (lot >= .93f)
             {
-                if (lot > .96f)
-                {
-                    direction = direction.TurnLeft();
-                }
-                else
-                {
-                    direction = direction.TurnRight();
-                }
+                if (lot > .96f) direction = direction.TurnLeft();
+                else direction = direction.TurnRight();
             }
         }
 
         if (!Exists(start)) return null;
 
-        return tiles;
+        MakeEffectOnDestination(start, -direction);
+
+        var path = new Path { Tiles = tiles };
+        SetOccupied(tiles, path);
+        return path;
+    }
+
+    // Check for intersections
+
+    private void MakeEffectOnDestination(Coord point, Coord direction)
+    {
+        var tile = GetObjectAt(point);
+
+        if (tile is Path)
+        {
+            var intersectingPath = tile as Path;
+            intersectingPath.Tiles.Remove(point);
+
+            var intersection = new Intersection();
+            SetOccupied(point, intersection);
+
+            intersection.Connections.Add(direction);
+            foreach (var otherPathTile in intersectingPath.Tiles.Where(x => x.Near(point)))
+            {
+                intersection.Connections.Add(otherPathTile - point);
+            }
+        }
+        else if (tile is Intersection)
+        {
+            (tile as Intersection).Connections.Add(direction);
+        }
+        else if (tile is Room)
+        {
+            (tile as Room).Entrances.Add((point, direction));
+        }
     }
 
     private Coord? GetNextValidTile(Queue<Coord> queue, List<Coord> occupied)
@@ -224,9 +245,10 @@ class Dungeon
 
 public class DungeonGenerator : MonoBehaviour
 {
+    Dungeon d = new Dungeon(new Coord(100, 100));
+
     void Start()
     {
-        Dungeon d = new Dungeon(new Coord(100, 100));
 
         for (int i = 5; i < 100; i += 10)
         {
@@ -237,7 +259,7 @@ public class DungeonGenerator : MonoBehaviour
                 var pos = new Coord(i, j);
                 var tiles = d.GenerateRoomTiles(pos + new Coord(Random.Range(-10, 10), Random.Range(-10, 10)), Random.Range(20, 50));
                 if (tiles == null) continue;
-                InstantiateTiles(tiles, new Color(.2f, .2f, Random.Range(.5f, 1f)));
+                // InstantiateTiles(tiles.Tiles, new Color(.2f, .2f, Random.Range(.5f, 1f)));
             }
         }
 
@@ -247,127 +269,58 @@ public class DungeonGenerator : MonoBehaviour
             var coord = new Coord(Random.Range(0, 100), Random.Range(0, 100));
             if (!d.IsFree(coord)) continue;
 
-            var tiles = d.GeneratePath(coord, Coord.Directions[Random.Range(0, 4)]);
-            if (tiles != null)
+            var path = d.GeneratePath(coord, Coord.Directions[Random.Range(0, 4)]);
+            if (path != null)
             {
-                d.SetOccupied(tiles);
-                InstantiateTiles(tiles, new Color(Random.Range(.5f, 1f), .2f, .2f));
+                // InstantiateTiles(path.Tiles, new Color(Random.Range(.5f, 1f), .2f, .2f));
                 wayCount++;
             }
         }
-    }
-    private void InstantiateTiles(IEnumerable<Coord> Tiles, Color color)
-    {
-        foreach (var tile in Tiles)
+
+        for (int i = 0; i < 100; ++i)
         {
-            var obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            obj.transform.localScale = new Vector3(1, 1, 0.1f);
-            obj.transform.position = new Vector3(tile.x, tile.y, 0);
-            obj.GetComponent<Renderer>().material.SetColor("_BaseColor", color);
+            for (int j = 0; j < 100; ++j)
+            {
+                InstantiateOn(new Coord(i, j));
+            }
         }
     }
 
-    // // Update is called once per frame
-    // void Update()
+    [SerializeField] GameObject FloorRoom;
+    [SerializeField] GameObject FloorPath;
+    [SerializeField] GameObject FloorIntersection;
+
+    void InstantiateOn(Coord c)
+    {
+        var obj = d.GetObjectAt(c);
+
+        if (obj is Room)
+        {
+            Instantiate(FloorRoom, Map(c), Quaternion.identity);
+        }
+        else if (obj is Path)
+        {
+            Instantiate(FloorPath, Map(c), Quaternion.identity);
+        }
+        else if (obj is Intersection)
+        {
+            Instantiate(FloorIntersection, Map(c), Quaternion.identity);
+        }
+    }
+
+    // private void InstantiateTiles(IEnumerable<Coord> Tiles, Color color)
     // {
-
-    // }
-
-    // private void GenerateRooms()
-    // {
-    //     Queue<Vector2> rooms = new Queue<Vector2>();
-    //     rooms.Enqueue(new Vector2(0, 0));
-
-    //     for (int i = 0; i < 10; ++i)
+    //     foreach (var tile in Tiles)
     //     {
-    //         if (rooms.Count == 0) break;
-
-    //         var next = rooms.Dequeue();
-    //         if (!dungeon.IsFree(next)) continue; // ?
-
-    //         var tiles = CreateRoomFromPoint(next, Random.Range(15, 20));
-    //         if (tiles == null) continue; // Should we really?
-    //         dungeon.SetTiles(tiles);
-    //         InstantiateTiles(tiles, new Color(Random.Range(0, 1f), Random.Range(0, 1f), Random.Range(0, 1f)));
-
-    //         for (int j = 0; j < 10; ++j)
-    //         {
-    //             var pNext = next + new Vector2(Random.Range(-10, 10), Random.Range(-10, 10));
-    //             if (dungeon.IsFree(pNext)) rooms.Enqueue(pNext);
-    //         }
+    //         var obj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+    //         obj.transform.localScale = new Vector3(1, 1, 0.1f);
+    //         obj.transform.position = new Vector3(tile.x, tile.y, 0);
+    //         obj.GetComponent<Renderer>().material.SetColor("_BaseColor", color);
     //     }
     // }
 
-    // private List<Vector2> CreateRoomFromPoint(Vector2 StartPosition, int RoomSize)
-    // {
-    //     if (!dungeon.IsFree(StartPosition))
-    //     {
-    //         print("Can't create room on " + StartPosition);
-    //         return null;
-    //     }
-
-    //     Queue<Vector2> Positions = new Queue<Vector2>();
-    //     List<Vector2> Tiles = new List<Vector2>();
-    //     Positions.Enqueue(StartPosition);
-
-    //     for (int i = 0; i < RoomSize; ++i)
-    //     {
-    //         if (!GenerateAnotherRoomTile(ref Positions, ref Tiles)) break;
-    //     }
-
-    //     print("Overall got " + Tiles.Count + " tiles");
-    //     return Tiles; // Tiles.Count > 10 ? Tiles : null;
-    // }
-
-    // // TODO: This is a nasty algorithm, maybe we should come up with something smarter
-    // private bool GenerateAnotherRoomTile(ref Queue<Vector2> NextTiles, ref List<Vector2> Tiles)
-    // {
-    //     if (NextTiles.Count == 0) return false;
-
-    //     var block = NextTiles.Dequeue();
-    //     while (!dungeon.IsFree(block) || Tiles.Contains(block))
-    //     {
-    //         if (NextTiles.Count == 0) return false;
-    //         block = NextTiles.Dequeue();
-    //     }
-
-    //     Tiles.Add(block);
-
-    //     for (int i = -1; i <= 1; ++i)
-    //     {
-    //         for (int j = -1; j <= 1; ++j)
-    //         {
-    //             if (i == 0 && j == 0) continue;
-
-    //             var nextBlock = new Vector2(i, j) + block;
-
-    //             // TODO: Check that rooms have at least 1 free space tile between them
-    //             if (Tiles.Contains(nextBlock)) continue;
-
-    //             // Chances of enqueueing depend on the number of already existing adjacent blocks
-    //             var adjacent = GetNumberOfAdjacentBlocks(nextBlock, Tiles);
-    //             if (Random.Range(0f, 1f) <= (adjacent / 3f) || (adjacent != 0 && Tiles.Count < 2))
-    //             {
-    //                 NextTiles.Enqueue(nextBlock);
-    //             }
-    //         }
-    //     }
-
-    //     return true;
-    // }
-
-    // private int GetNumberOfAdjacentBlocks(Vector2 tile, List<Vector2> tiles)
-    // {
-    //     // int count = 0;
-    //     // for (int i = -1; i <= 1; ++i)
-    //     // {
-    //     //     for (int j = -1; j <= 1; ++j)
-    //     //     {
-    //     //         if (i == 0 && j == 0) continue;
-    //     //         if (tiles.Contains(new Vector2(i, j) + tile)) count++;
-    //     //     }
-    //     // }
-    //     // return count;
-    //     return tiles.Count(x => Vector2.Distance(x, tile) == 1);
-    // }
+    private Vector3 Map(Coord coord)
+    {
+        return new Vector3(coord.x, 0, coord.y) * 8f;
+    }
 }
