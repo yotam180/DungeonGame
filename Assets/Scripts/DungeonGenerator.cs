@@ -319,7 +319,7 @@ public class DungeonGenerator : MonoBehaviour
         var tile = roomTiles[Random.Range(0, roomTiles.Count)];
 
         Controller.GetComponent<CharacterController>().enabled = false;
-        Controller.transform.position = Map(tile) + Vector3.up * 3;
+        Controller.transform.position = Map(tile) + new Vector3(3, 3, 3);
         Controller.GetComponent<CharacterController>().enabled = true;
         print("Transformed FPS controller to place");
     }
