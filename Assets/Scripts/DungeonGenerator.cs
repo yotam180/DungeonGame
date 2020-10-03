@@ -271,14 +271,16 @@ public class Dungeon
 
 public class DungeonGenerator : MonoBehaviour
 {
-    Dungeon d = new Dungeon(new Coord(100, 100));
+    static readonly int DUNGEON_SIZE = 60;
+
+    Dungeon d = new Dungeon(new Coord(DUNGEON_SIZE, DUNGEON_SIZE));
 
     void Start()
     {
 
-        for (int i = 5; i < 100; i += 10)
+        for (int i = 5; i < DUNGEON_SIZE; i += 10)
         {
-            for (int j = 5; j < 100; j += 10)
+            for (int j = 5; j < DUNGEON_SIZE; j += 10)
             {
                 if (Random.Range(0f, 1f) >= .7f) continue;
 
@@ -290,9 +292,9 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         int wayCount = 0;
-        for (int i = 0; i < 1500 && wayCount < 200; ++i)
+        for (int i = 0; i < 1500 && wayCount < 100; ++i)
         {
-            var coord = new Coord(Random.Range(0, 100), Random.Range(0, 100));
+            var coord = new Coord(Random.Range(0, DUNGEON_SIZE), Random.Range(0, DUNGEON_SIZE));
             if (!d.IsFree(coord)) continue;
 
             var path = d.GeneratePath(coord, Coord.Directions[Random.Range(0, 4)]);
@@ -303,9 +305,9 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
 
-        for (int i = 0; i < 100; ++i)
+        for (int i = 0; i < DUNGEON_SIZE; ++i)
         {
-            for (int j = 0; j < 100; ++j)
+            for (int j = 0; j < DUNGEON_SIZE; ++j)
             {
                 InstantiateOn(new Coord(i, j));
             }
@@ -357,7 +359,7 @@ public class DungeonGenerator : MonoBehaviour
         foreach (var direction in Coord.Directions)
         {
             var obj = d.GetObjectAt(coord + direction);
-            if (inter.Connections.Contains(direction) || (obj is Room && (obj as Room).Entrances.Contains((coord + direction, -direction))))
+            if (obj != null && (inter.Connections.Contains(direction) || (obj is Room && (obj as Room).Entrances.Contains((coord + direction, -direction)))))
             {
             }
             else
