@@ -72,6 +72,8 @@ public class Room
 {
     public List<Coord> Tiles = new List<Coord>();
     public List<(Coord, Coord)> Entrances = new List<(Coord, Coord)>();
+
+    public Color? WallsColor;
 }
 
 public class Path
@@ -292,7 +294,7 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         int wayCount = 0;
-        for (int i = 0; i < 1500 && wayCount < 100; ++i)
+        for (int i = 0; i < 1500 && wayCount < 80; ++i)
         {
             var coord = new Coord(Random.Range(0, DUNGEON_SIZE), Random.Range(0, DUNGEON_SIZE));
             if (!d.IsFree(coord)) continue;
@@ -330,6 +332,9 @@ public class DungeonGenerator : MonoBehaviour
     [SerializeField] GameObject FloorPath;
     [SerializeField] GameObject FloorIntersection;
     [SerializeField] GameObject Wall;
+    [SerializeField] GameObject WallRoom;
+
+    static readonly float EMISSION_MAX = .25f;
 
     void InstantiateOn(Coord c)
     {
@@ -337,8 +342,13 @@ public class DungeonGenerator : MonoBehaviour
 
         if (obj is Room)
         {
+            if ((obj as Room).WallsColor == null)
+            {
+                (obj as Room).WallsColor = new Color(Random.Range(0f, EMISSION_MAX), Random.Range(0f, EMISSION_MAX), Random.Range(0f, EMISSION_MAX));
+            }
+
             InstantiateGameObject(FloorRoom, Map(c), Quaternion.identity);
-            CreateRoomWalls(c);
+            CreateRoomWalls(c, (obj as Room).WallsColor.Value);
         }
         else if (obj is Path)
         {
@@ -352,7 +362,7 @@ public class DungeonGenerator : MonoBehaviour
         }
     }
 
-    void CreateRoomWalls(Coord coord)
+    void CreateRoomWalls(Coord coord, Color c)
     {
         var room = d.GetObjectAt(coord) as Room;
 
@@ -360,7 +370,8 @@ public class DungeonGenerator : MonoBehaviour
         {
             if ((d.GetObjectAt(coord + direction) != room && !room.Entrances.Contains((coord, direction))) || d.GetObjectAt(coord + direction) == null)
             {
-                InstantiateWall(coord, direction);
+                var wall = InstantiateWall(coord, direction, WallRoom);
+                wall.GetComponent<Renderer>().material.SetColor("_EmissiveColor", c);
             }
         }
     }
@@ -375,7 +386,7 @@ public class DungeonGenerator : MonoBehaviour
             {
             }
             else
-                InstantiateWall(coord, direction);
+                InstantiateWall(coord, direction, Wall);
         }
     }
 
@@ -391,18 +402,19 @@ public class DungeonGenerator : MonoBehaviour
             }
             else
             {
-                InstantiateWall(coord, direction);
+                InstantiateWall(coord, direction, Wall);
             }
         }
     }
 
-    void InstantiateWall(Coord coord, Coord direction)
+    GameObject InstantiateWall(Coord coord, Coord direction, GameObject wall)
     {
         var objectLocation = Map(coord);
         var wallLocation = MapWall(direction);
         var rotation = Quaternion.LookRotation(new Vector3(direction.y, 0, -direction.x), Vector3.up);
-        var wallObj = InstantiateGameObject(Wall, objectLocation + wallLocation, rotation);
+        var wallObj = InstantiateGameObject(wall, objectLocation + wallLocation, rotation);
         wallObj.name = coord.x + ", " + coord.y + " -- " + direction.x + ", " + direction.y;
+        return wallObj;
     }
 
     GameObject InstantiateGameObject(GameObject obj, Vector3 position, Quaternion rotation)
