@@ -165,10 +165,16 @@ class Dungeon
             var nextTile = GetNextValidTile(upcoming, tiles);
             if (nextTile == null) break;
 
-            tiles.Add(nextTile.Value);
-            foreach (var dir in Coord.Directions)
+            var adjacent = GetNumberOfAdjacentBlocks(nextTile.Value, tiles);
+            Debug.Log(adjacent);
+            if (Random.Range(0f, 1f) <= (adjacent / 3f) || tiles.Count < 2)
             {
-                upcoming.Enqueue(dir + nextTile.Value);
+                tiles.Add(nextTile.Value);
+                foreach (var dir in Coord.Surrounding)
+                {
+                    upcoming.Enqueue(dir + nextTile.Value);
+                }
+
             }
         }
 
@@ -189,6 +195,11 @@ class Dungeon
 
         return next;
     }
+
+    private int GetNumberOfAdjacentBlocks(Coord coord, List<Coord> tiles)
+    {
+        return Coord.Surrounding.Select(dir => tiles.Contains(dir + coord) ? 1 : 0).Sum();
+    }
 }
 
 public class DungeonGenerator : MonoBehaviour
@@ -196,11 +207,23 @@ public class DungeonGenerator : MonoBehaviour
     void Start()
     {
         Dungeon d = new Dungeon(new Coord(100, 100));
-        var tiles = d.GenerateRoomTiles(new Coord(5, 5), 20);
-        InstantiateTiles(tiles, Color.blue);
 
-        tiles = d.GenerateRoomTiles(new Coord(5, 10), 20);
-        InstantiateTiles(tiles, Color.green);
+        for (int i = 5; i < 100; i += 10)
+        {
+            for (int j = 5; j < 100; j += 10)
+            {
+                var pos = new Coord(i, j);
+                var tiles = d.GenerateRoomTiles(pos + new Coord(Random.Range(-10, 10), Random.Range(-10, 10)), Random.Range(20, 50));
+                if (tiles == null) continue;
+                InstantiateTiles(tiles, new Color(Random.Range(0, 1f), Random.Range(0, 1f), Random.Range(0, 1f)));
+            }
+        }
+
+        // var tiles =
+        // InstantiateTiles(tiles, Color.blue);
+
+        // tiles = d.GenerateRoomTiles(new Coord(5, 10), 20);
+        // InstantiateTiles(tiles, Color.green);
     }
 
     // public List<Room> Rooms;
