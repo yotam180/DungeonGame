@@ -220,9 +220,23 @@ public class Dungeon
             SetOccupied(point, intersection);
 
             intersection.Connections.Add(direction);
-            foreach (var otherPathTile in intersectingPath.Tiles.Where(x => x.Near(point)))
+
+            foreach (var intersectionDir in Coord.Directions)
             {
-                intersection.Connections.Add(otherPathTile - point);
+                var neighbor = GetObjectAt(point + intersectionDir);
+                if (neighbor == intersectingPath || neighbor is Intersection)
+                {
+                    intersection.Connections.Add(intersectionDir);
+                }
+                // if (neighbor is Room)
+                // {
+                //     (neighbor as Room).Entrances.Append((point + intersectionDir, -intersectionDir));
+                // }
+                // else 
+                if (neighbor is Intersection)
+                {
+                    (neighbor as Intersection).Connections.Append(-intersectionDir);
+                }
             }
         }
         else if (tile is Intersection)
@@ -269,7 +283,7 @@ public class DungeonGenerator : MonoBehaviour
                 if (Random.Range(0f, 1f) >= .7f) continue;
 
                 var pos = new Coord(i, j);
-                var tiles = d.GenerateRoomTiles(pos + new Coord(Random.Range(-10, 10), Random.Range(-10, 10)), Random.Range(20, 50));
+                var tiles = d.GenerateRoomTiles(pos + new Coord(Random.Range(-10, 10), Random.Range(-10, 10)), Random.Range(10, 25));
                 if (tiles == null) continue;
                 // InstantiateTiles(tiles.Tiles, new Color(.2f, .2f, Random.Range(.5f, 1f)));
             }
@@ -330,7 +344,7 @@ public class DungeonGenerator : MonoBehaviour
 
         foreach (var direction in Coord.Directions)
         {
-            if (d.GetObjectAt(coord + direction) != room && !room.Entrances.Contains((coord, direction)))
+            if ((d.GetObjectAt(coord + direction) != room && !room.Entrances.Contains((coord, direction))) || d.GetObjectAt(coord + direction) == null)
             {
                 InstantiateWall(coord, direction);
             }
@@ -342,10 +356,12 @@ public class DungeonGenerator : MonoBehaviour
         var inter = d.GetObjectAt(coord) as Intersection;
         foreach (var direction in Coord.Directions)
         {
-            if (!inter.Connections.Contains(direction))
+            var obj = d.GetObjectAt(coord + direction);
+            if (inter.Connections.Contains(direction) || (obj is Room && (obj as Room).Entrances.Contains((coord + direction, -direction))))
             {
-                InstantiateWall(coord, direction);
             }
+            else
+                InstantiateWall(coord, direction);
         }
     }
 
@@ -355,7 +371,7 @@ public class DungeonGenerator : MonoBehaviour
         foreach (var direction in Coord.Directions)
         {
             var obj = d.GetObjectAt(coord + direction);
-            if (obj == me || obj is Room || (obj is Intersection && (obj as Intersection).Connections.Contains(-direction)))
+            if (obj == me || (obj is Room && (obj as Room).Entrances.Contains((coord + direction, -direction))) || (obj is Intersection && (obj as Intersection).Connections.Contains(-direction)))
             {
                 // Nothing lol
             }
