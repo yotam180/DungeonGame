@@ -4,69 +4,6 @@ using System.Collections.Specialized;
 using System.Linq;
 using UnityEngine;
 
-// public class Room
-// {
-//     public Vector2 Position { get; set; }
-//     public Vector2 Size { get; set; }
-//     public Vector2 Doors { get; set; }
-// }
-
-// public class Dungeon
-// {
-//     public bool[,] Tiles { get; set; }
-
-//     public Dungeon(int width, int height)
-//     {
-//         Tiles = new bool[width, height];
-//     }
-
-//     public void PlaceTile(int x, int y)
-//     {
-//         Tiles[x, y] = true;
-//     }
-
-//     public bool IsInside(Vector2 pos)
-//     {
-//         return pos.x >= 0 && pos.y >= 0 && pos.x < Tiles.GetLength(0) && pos.y < Tiles.GetLength(0);
-//     }
-
-//     public bool HasTile(Vector2 pos)
-//     {
-//         if (!IsInside(pos)) return false;
-//         return Tiles[(int)pos.x, (int)pos.y];
-//     }
-
-//     public void SetTile(Vector2 pos)
-//     {
-//         if (!IsInside(pos)) return;
-//         Tiles[(int)pos.x, (int)pos.y] = true;
-//         Debug.Log("Placed a tile in " + pos);
-//     }
-
-//     public void SetTiles(IEnumerable<Vector2> positions)
-//     {
-//         foreach (var pos in positions)
-//         {
-//             SetTile(pos);
-//         }
-//     }
-
-//     public bool IsFree(Vector2 pos)
-//     {
-//         Debug.Log("Checking if " + pos + " is free");
-//         for (int i = -1; i <= 1; ++i)
-//         {
-//             for (int j = -1; j <= 1; ++j)
-//             {
-//                 if (HasTile(new Vector2(i, j) + pos)) return false;
-//             }
-//         }
-
-//         Debug.Log("Returned true");
-//         return true;
-//     }
-// }
-
 struct Coord
 {
     public int x;
@@ -97,11 +34,33 @@ struct Coord
     };
 
     public static Coord operator +(Coord a, Coord b) => new Coord(a.x + b.x, a.y + b.y);
+    public static Coord Cross(Coord a, Coord b)
+    {
+        return new Coord(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+    }
+
+    public Coord TurnLeft()
+    {
+        return Cross(this, new Coord(0, 1));
+    }
+
+    public Coord TurnRight()
+    {
+        return Cross(this, new Coord(0, 1));
+    }
+}
+
+class Room
+{
+    public List<Coord> Tiles = new List<Coord>();
+    public List<Coord> Entrances = new List<Coord>();
 }
 
 class Dungeon
 {
     public bool[,] Tiles;
+
+    List<Room> Rooms = new List<Room>();
 
     public Dungeon(Coord size)
     {
@@ -120,12 +79,6 @@ class Dungeon
 
     public bool IsFree(Coord coord)
     {
-        if (coord.x == 5 && coord.y == 8)
-        {
-            Debug.Log("Checking critical tile");
-            Debug.Log(Tiles[5, 8]);
-        }
-
         if (Occupied(coord) || !Exists(coord)) return false;
 
         foreach (var dir in Coord.Surrounding)
@@ -166,7 +119,6 @@ class Dungeon
             if (nextTile == null) break;
 
             var adjacent = GetNumberOfAdjacentBlocks(nextTile.Value, tiles);
-            Debug.Log(adjacent);
             if (Random.Range(0f, 1f) <= (adjacent / 3f) || tiles.Count < 2)
             {
                 tiles.Add(nextTile.Value);
@@ -179,6 +131,74 @@ class Dungeon
         }
 
         SetOccupied(tiles);
+        Rooms.Add(new Room
+        {
+            Tiles = tiles
+        });
+        return tiles;
+    }
+
+    // public class PathGenerator
+    // {
+    //     public Coord Latest;
+
+    //     public Coord Direction;
+
+    //     public Coord Advance()
+    //     {
+    //         var lot = Random.Range(0f, 1f);
+    //         if (lot < .85f) { }
+    //         else if (lot < .93)
+    //         {
+    //             Direction = Direction.TurnLeft();
+    //         }
+    //         else
+    //         {
+    //             Direction = Direction.TurnRight();
+    //         }
+
+    //         Latest = Latest + Direction;
+    //         return Latest;
+    //     }
+    // }
+
+    // public void GeneratePath()
+    // {
+    //     var gen = new PathGenerator { Direction = new Coord(1, 0) };
+    // }
+
+    public List<Coord> GeneratePath(Coord start, Coord direction)
+    {
+        while (Exists(start) && !(Occupied(start) && !Occupied(start + direction)))
+        {
+            start += direction;
+        }
+
+        if (!Exists(start)) return null; // ?
+
+        start += direction;
+        List<Coord> tiles = new List<Coord>();
+        while (Exists(start) && !(Occupied(start)))
+        {
+            tiles.Add(start);
+            start += direction;
+
+            var lot = Random.Range(0f, 1f);
+            if (lot >= .93f)
+            {
+                if (lot > .96f)
+                {
+                    direction = direction.TurnLeft();
+                }
+                else
+                {
+                    direction = direction.TurnRight();
+                }
+            }
+        }
+
+        if (!Exists(start)) return null;
+
         return tiles;
     }
 
@@ -212,60 +232,30 @@ public class DungeonGenerator : MonoBehaviour
         {
             for (int j = 5; j < 100; j += 10)
             {
+                if (Random.Range(0f, 1f) >= .7f) continue;
+
                 var pos = new Coord(i, j);
                 var tiles = d.GenerateRoomTiles(pos + new Coord(Random.Range(-10, 10), Random.Range(-10, 10)), Random.Range(20, 50));
                 if (tiles == null) continue;
-                InstantiateTiles(tiles, new Color(Random.Range(0, 1f), Random.Range(0, 1f), Random.Range(0, 1f)));
+                InstantiateTiles(tiles, new Color(.2f, .2f, Random.Range(.5f, 1f)));
             }
         }
 
-        // var tiles =
-        // InstantiateTiles(tiles, Color.blue);
+        int wayCount = 0;
+        for (int i = 0; i < 1500 && wayCount < 200; ++i)
+        {
+            var coord = new Coord(Random.Range(0, 100), Random.Range(0, 100));
+            if (!d.IsFree(coord)) continue;
 
-        // tiles = d.GenerateRoomTiles(new Coord(5, 10), 20);
-        // InstantiateTiles(tiles, Color.green);
+            var tiles = d.GeneratePath(coord, Coord.Directions[Random.Range(0, 4)]);
+            if (tiles != null)
+            {
+                d.SetOccupied(tiles);
+                InstantiateTiles(tiles, new Color(Random.Range(.5f, 1f), .2f, .2f));
+                wayCount++;
+            }
+        }
     }
-
-    // public List<Room> Rooms;
-
-    // private Dungeon dungeon;
-
-    // Start is called before the first frame update
-    // void Start()
-    // {
-    //     dungeon = new Dungeon(100, 100);
-    // var tiles = CreateRoomFromPoint(new Vector2(0, 0), 1);
-    // Debug.Log("Setting tiles");
-    // if (tiles != null)
-    // {
-    //     dungeon.SetTiles(tiles);
-    //     InstantiateTiles(tiles, Color.red);
-    // }
-
-    // tiles = CreateRoomFromPoint(new Vector2(1, 0), 1);
-    // if (tiles != null)
-    // {
-    //     dungeon.SetTiles(tiles);
-    //     InstantiateTiles(tiles, Color.red);
-    // }
-
-    // tiles = CreateRoomFromPoint(new Vector2(1, 1), 1);
-    // if (tiles != null)
-    // {
-    //     dungeon.SetTiles(tiles);
-    //     InstantiateTiles(tiles, Color.red);
-    // }
-
-    // tiles = CreateRoomFromPoint(new Vector2(1, 2), 1);
-    // if (tiles != null)
-    // {
-    //     dungeon.SetTiles(tiles);
-    //     InstantiateTiles(tiles, Color.red);
-    // }
-
-    //     GenerateRooms();
-    // }
-
     private void InstantiateTiles(IEnumerable<Coord> Tiles, Color color)
     {
         foreach (var tile in Tiles)
