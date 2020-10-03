@@ -313,11 +313,13 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
 
+        // Spawn us on a random tile which is not an entry
         var room = d.Rooms[Random.Range(0, d.Rooms.Count)];
-        var tile = room.Tiles[Random.Range(0, room.Tiles.Count)];
+        var roomTiles = room.Tiles.Where(t => room.Entrances.Count(e => e.Item1.Equals(t)) == 0).ToList();
+        var tile = roomTiles[Random.Range(0, roomTiles.Count)];
 
         Controller.GetComponent<CharacterController>().enabled = false;
-        Controller.transform.position = Map(tile) + Vector3.up;
+        Controller.transform.position = Map(tile) + Vector3.up * 3;
         Controller.GetComponent<CharacterController>().enabled = true;
         print("Transformed FPS controller to place");
     }
