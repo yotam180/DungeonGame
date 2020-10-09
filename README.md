@@ -9,4 +9,4 @@ no goal and no other player.
 
 However the dungeon generation went well and it looks neat. :D
 
-<video src="https://github.com/yotam180/DungeonGame/raw/master/_preview.mp4" autoplay>
+![Game screenshot](https://media.githubusercontent.com/media/yotam180/DungeonGame/master/preview.PNG)
